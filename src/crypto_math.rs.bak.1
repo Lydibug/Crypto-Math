@@ -1,0 +1,426 @@
+#[allow(dead_code)]
+
+pub mod crypto_math
+{
+    /*
+     * Binary GCD algorithm
+     */
+    pub fn gcd
+    (mut u: u128, mut v: u128) -> u128 
+    {
+        use std::cmp::min;
+        use std::mem::swap;
+        if u == 0 
+        {
+            return v;
+        } 
+        else if v == 0 
+        {
+            return u;
+        }
+        let i = u.trailing_zeros();  u >>= i;
+        let j = v.trailing_zeros();  v >>= j;
+        let k = min(i, j);
+
+        loop {
+            debug_assert!(u & 1 == 1, "u = {} is even", u);
+            debug_assert!(v & 1 == 1, "v = {} is even", v);
+
+            if u > v 
+            {
+                swap(&mut u, &mut v);
+            }
+            v -= u;
+            if v == 0 
+            {
+                return u << k;
+            }
+            v >>= v.trailing_zeros();
+        }
+    }
+
+    /*
+     * Modular multiplication
+     * ADD MONTGOMERY REDUCTION
+     */
+    pub fn mod_mul
+    (a: u128, mut b: u128, n: u128) -> u128
+    {
+        let mut x = 0;
+        let mut y = a % n;
+        while b > 0
+        {
+            if b & 1 == 1
+            {
+                x = (x + y) % n;
+            }
+            y = (y << 1) % n;
+            b >>= 1;
+        }
+        return x % n;
+    }
+
+    /*
+     *  Modular exponentiation using square multiply method
+     */
+    pub fn mod_pow 
+    (mut base: u128, mut exponent: u128, modulus: u128) -> u128
+    {
+        let mut result: u128 = 1;
+        if modulus <= 1
+        {
+            return 0;
+        }
+        
+        base = base % modulus;
+        if base <= 1
+        {
+            return base;
+        }
+
+        while exponent > 0
+        {
+            if exponent & 1 == 1
+            {
+                result = mod_mul(result,base,modulus);
+            }
+            exponent >>= 1;
+            base = mod_mul(base,base,modulus);
+        }
+        return result;
+    }
+
+    /*
+     * Miller-Rabbin primality test
+     */
+    pub fn is_prime
+    (number: u128) -> bool
+    {
+        extern crate rand;
+        use rand::Rng;
+
+        match number
+        {
+            0 | 1 | 4 | 6 | 8 | 9 | 10 => return false,
+            2 | 3 | 5 | 7 | 11 => return true,
+            12..=64 =>
+            {
+                if number & 1 == 0
+                {
+                    return false;
+                }
+                let bits: [bool; 5] = [ number & 32 == 32, 
+                                        number & 16 == 16,
+                                        number & 8 == 8,
+                                        number & 4 == 4,
+                                        number & 2 == 2 ];
+                // Boolean expression for some 6 bit even numbers and all 6 bit primes above 10
+                return (!bits[0] && !bits[2] && !bits[3]) ||
+                    (!bits[0] && !bits[1] && !bits[4]) ||
+                    (!bits[1] &&  bits[2] && !bits[3]) ||
+                    (!bits[0] &&  bits[1] &&  bits[3] &&  bits[4]) ||
+                    ( bits[1] &&  bits[2] &&  bits[3] && !bits[4]) || 
+                    ( bits[0] && !bits[2] &&  bits[3] && !bits[4]) || 
+                    ( bits[0] && !bits[1] &&  bits[2] &&  bits[4]) || 
+                    ( bits[0] &&  bits[2] && !bits[3] &&  bits[4]); 
+            },
+            _ => 
+            {
+                if number & 1 == 0 || number % 5 == 0
+                {
+                    return false;
+                }
+
+                // Miller-Rabbin primality test with 40 rounds
+                // This can be replaced with AKS
+                let mut rng = rand::thread_rng();
+                let r = (number - 1).trailing_zeros();
+                let d =  (number - 1) >> r;
+
+                'WitnessLoop: for _k in 0..40
+                {
+                    let a = rng.gen_range(2..number - 2);
+                    let mut x = mod_pow(a,d,number);
+                    if x == 1 || x == number - 1
+                    {
+                        continue 'WitnessLoop;
+                    }
+                    for _i in 0.. r - 1
+                    {
+                        x = mod_mul(x,x,number);
+                        if x == number - 1
+                        {
+                            continue 'WitnessLoop;
+                        }
+                    }
+                    return false;
+                }
+                return true;
+            }
+        }
+    }
+
+    /*
+     *  Pollard-Rho factorization
+     *  Prime numbers will cause this to loop forever so check for primality before hand
+     */
+    pub fn pollard_rho
+    (n: u128) -> u128
+    {
+        extern crate rand;
+        use rand::Rng;
+        use std::cmp::min;
+        let mut rng = rand::thread_rng();
+        
+        let mut x : u128;
+        let mut y : u128;
+        let mut k : u128;
+        let mut q : u128;
+        let mut d : u128;
+        let mut r : u128;
+        let mut last_y: u128;
+        let m : u128;
+        let c : u128;
+        
+
+        y = rng.gen_range(1..n);
+        c = rng.gen_range(1..n);
+        m = rng.gen_range(1..n);
+        
+        last_y = y;
+        x = y;
+        q = 1;
+        r = 1; 
+        d = 1;
+
+        while d == 1
+        {
+            x = y;
+            for _ in 0..r
+            {
+                y = (mod_mul(y, y, n) + c) % n;
+            }
+            k = 0;
+            while k < r && d == 1
+            {
+                last_y = y;
+                for _ in 0..min(m,r-k)
+                {
+                    y = (mod_mul(y, y, n) + c) % n;
+                    q = mod_mul( if x > y { x - y } else { y - x }, q, n);
+                }
+                d = gcd(q, n);
+                k += m;
+            }
+            r <<= 1;
+        }
+
+        if d == n
+        {
+            d = 1;
+            while d == 1
+            {
+                last_y = (mod_mul(last_y, last_y, n) + c) % n;
+                d = gcd(if x > last_y { x - last_y } else { last_y - x }, n);
+            }
+        }
+        return d;
+    }
+
+
+    /*
+     * Returns a list of the prime factors of a number and their exponants
+     * p^k -> (p,k)
+     */
+    pub fn prime_factorize
+    (mut number : u128 ) -> Vec<(u128,u32)>
+    {
+        let mut prime_factors : Vec<(u128,u32)> = Vec::<(u128,u32)>::new();
+        while number > 1
+        {
+            //Replace the factorization alg with a quadratic seive for integers <30 digits
+            let mut exp = 0;
+            let mut factor = pollard_rho(number);
+            // Find a prime factor
+            while !is_prime(factor)
+            {
+                factor = pollard_rho(factor);
+            }
+            // Count how many times that factor appears
+            while number % factor == 0
+            {
+                exp += 1;
+                number /= factor;
+            }
+            prime_factors.push((factor,exp));
+        }
+        //println!("{:?}", prime_factors);
+        return prime_factors
+    }
+
+
+    /*
+     * Eulers Phi function
+     */
+    pub fn eulers_phi
+    (mut number: u128) -> u128
+    {
+        let mut pot : u128 = 1;
+        let mut phi : u128 = 1;
+
+        if number == 0
+        {
+            return 1;
+        }
+
+        // increases efficiency for even numbers
+        let zeros = number.trailing_zeros();
+        if  zeros > 0
+        {
+            let pk : u128 = 1 << zeros;
+            let pm = pk >> 1;
+            number >>= zeros;
+            pot = pk - pm;
+        }
+
+        if number == 1
+        {
+            return pot;
+        }
+
+        // increases efficiency for prime numbers
+        if is_prime ( number ) 
+        {
+            phi = number - 1;
+        }
+        else
+        {
+            // Make a list of all prime factors of the number
+            let mut prime_factors : Vec<(u128,u32)> = prime_factorize(number);
+            
+            // Loop through each prime factor, using phi(p^k) = p^(k-1) * (p - 1)
+            while !prime_factors.is_empty()
+            {
+                let factor = prime_factors.pop().unwrap();
+                let prime = factor.0;
+                let exp = factor.1;
+                phi *= prime - 1;
+                if exp > 1
+                {
+                    phi *= prime.pow(exp - 1);
+                }
+            }
+        }
+        return pot * phi;
+    }
+
+    /*
+     * Calculates the inverse of a member of
+     * a integer field
+     */
+    pub fn mod_inv
+    (number: u128, modulus: u128) -> u128
+    {
+        if number == 1 || number == 0
+        {
+            return number;
+        }
+        let phi = eulers_phi(modulus);
+        let inv_exp = phi - 1;
+        let inverse = mod_pow ( number, inv_exp, modulus );
+        return inverse;
+    }
+
+    /*
+     * Returns a pair of factors for a given number, 
+     * with the last index noting if the number is prime
+     */
+    pub fn factorize
+    (a: u128) -> (u128,u128,bool)
+    {
+        if a == 0
+        {
+            return (0,0,false);
+        }
+        else if a == 1
+        {
+            return (a,1,false);
+        }
+        else if is_prime(a)
+        {
+            return (a,1,true);
+        }
+        else
+        {
+            let factor = pollard_rho(a);
+            return (factor, a/factor,false);
+        }
+    }
+
+    /*
+     * Generates a random prime number
+     * this function is cryptographically secure.
+     * This does not ensure the primes will be
+     * suitable for use in RSA
+     */
+    pub fn rand_prime
+    () -> u128
+    {
+        extern crate rand;
+        use rand_core::{RngCore, OsRng};
+        
+        let mut bytes = [ 0u8; 16 ];
+        OsRng.fill_bytes(&mut bytes);
+        let mut number = u128::from_be_bytes(bytes);
+        
+        while !is_prime(number)
+        {
+            OsRng.fill_bytes(&mut bytes);
+            number = u128::from_be_bytes(bytes);
+        }
+        return number;
+    }
+
+    /*
+     * Shanks algoritm for the discrete log problem
+     * Returns 0 for non-prime moduli
+     */
+    pub fn shanks
+    (alpha: u128, beta: u128, modulus: u128) -> u128
+    {
+
+        use std::collections::HashMap;
+        use crate::misc_functions::misc;
+        
+        let root;
+        let mut l1: Vec<(u128 , u128)> = Vec::<(u128 , u128)>::new();
+        let mut l2 = HashMap::new();
+
+        if is_prime(modulus)
+        {
+            // pre-calculate alpha^-1 for use later
+            let alpha_inv = mod_inv(alpha, modulus);
+         
+            // Calculate the ceiling of the square root
+            root = misc::ceil_sqrt(modulus);
+            
+            // compute (j, a ^ mj mod n) for l1 and (j, b * a ^ -j mod n) for l2
+            for j in 0..root
+            {
+                let alpha_inv_j = mod_pow(alpha_inv, j, modulus);
+                l1.push((j, mod_pow(alpha, root * j, modulus)));
+                l2.insert( mod_mul(alpha_inv_j, beta, modulus), j);
+            }
+            // Find an element of each list which have the same second value
+            for pair in l1
+            {
+                let twin = l2.get(&pair.1);
+                if !twin.is_none()
+                {
+                    return mod_mul(root, pair.0, modulus) + twin.unwrap() % modulus;
+                }
+            }
+        }
+        return 0;
+    }
+}
