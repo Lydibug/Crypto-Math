@@ -30,7 +30,7 @@ fn benchmark()
     use std::time::Instant;
     use std::time::Duration;
 
-    let lim: u128 = 1 << 50;//(1 << 127) + ((1 << 127) - 1);
+    //let lim: u128 = 1 << 50;//(1 << 127) + ((1 << 127) - 1);
 
     let mut ans: u128;
     let mut rng = rand::thread_rng();
@@ -40,11 +40,13 @@ fn benchmark()
 
     loop
     {
-        let x: u128 = rng.gen_range(0..lim);
+        //let x: u128 = rng.gen_range(0..lim);
+        let x: u128 = crypto_math::rand_prime();
+        
         runs += 1;
         print!("{}: {}...",runs,x);
         let now = Instant::now();
-        ans = crypto_math::eulers_phi(x);
+        ans = crypto_math::find_primitive_root(x);//crypto_math::eulers_phi(x);
         let elapsed = now.elapsed();
         print!("{} Done!",ans);
         total += elapsed;

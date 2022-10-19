@@ -221,7 +221,7 @@ pub mod crypto_math
     pub fn rand_prime
     () -> u128
     {
-        let max = 1 << 127;
+        let max = 1 << 50;//1 << 127;
         let min = 2;
         let mut number = rand_num(min, max);
         while !is_prime(number)
@@ -586,18 +586,25 @@ pub mod crypto_math
         loop
         {
             let primitive = rand_num(2,totient);
-            let mut is_primitive = true;
-            for power in &powers
+            if is_quadratic_residue(primitive, number)
             {
-                let test = mod_pow(primitive, *power % totient, number);
-                if test == 1
-                {
-                    is_primitive = false;
-                }
+                continue;
             }
-            if is_primitive
+            else
             {
-                return primitive;
+                let mut is_primitive = true;
+                for power in &powers
+                {
+                    let test = mod_pow(primitive, *power, number);
+                    if test == 1
+                    {
+                        is_primitive = false;
+                    }
+                }
+                if is_primitive
+                {
+                    return primitive;
+                }
             }
         }
     }
@@ -623,22 +630,30 @@ pub mod crypto_math
         // itterate over all elements and check if they're primitive until they are all found
         for primitive in 1..number
         {
-            let mut is_primitive = true;
-            for power in &powers
+            // A quadratic residue cannot be a primitive element
+            if is_quadratic_residue(primitive, number)
             {
-                let test = mod_pow(primitive, *power % totient, number);
-                if test == 1
+                continue;
+            }
+            else
+            {
+                let mut is_primitive = true;
+                for power in &powers
                 {
-                    is_primitive = false;
+                    let test = mod_pow(primitive, *power, number);
+                    if test == 1
+                    {
+                        is_primitive = false;
+                    }
                 }
-            }
-            if is_primitive
-            {
-                primitives.push(primitive);
-            }
-            if root_count == primitives.len().try_into().unwrap()
-            {
-                break;
+                if is_primitive
+                {
+                    primitives.push(primitive);
+                }
+                if root_count == primitives.len().try_into().unwrap()
+                {
+                    break;
+                }
             }
         }
         return primitives;
