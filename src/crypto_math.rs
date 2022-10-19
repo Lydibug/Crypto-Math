@@ -586,11 +586,7 @@ pub mod crypto_math
         loop
         {
             let primitive = rand_num(2,totient);
-            if is_quadratic_residue(primitive, number)
-            {
-                continue;
-            }
-            else
+            if !is_quadratic_residue(primitive, number)
             {
                 let mut is_primitive = true;
                 for power in &powers
@@ -631,11 +627,7 @@ pub mod crypto_math
         for primitive in 1..number
         {
             // A quadratic residue cannot be a primitive element
-            if is_quadratic_residue(primitive, number)
-            {
-                continue;
-            }
-            else
+            if !is_quadratic_residue(primitive, number)
             {
                 let mut is_primitive = true;
                 for power in &powers
