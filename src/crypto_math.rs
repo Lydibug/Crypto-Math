@@ -10,11 +10,15 @@ pub mod crypto_math
     {
         extern crate rand;
         use rand_core::{RngCore, OsRng};
-
         let mut bytes = [ 0u8; 16 ];
+        
+        // Fill the bytes with data from the operating systems urandom source
         OsRng.fill_bytes(&mut bytes);
+        
+        // Convert the bytes to a u128 number and make sure it's less than max
         let number = u128::from_be_bytes(bytes) % max;
         
+        // Make sure the number is greater than min
         if number < min
         {
             return min + number;
@@ -62,6 +66,7 @@ pub mod crypto_math
 
     /*
      * extended euclidian algorithm
+     * This can have negative values for s and t
      */
     pub fn gcd_ext
     (a : i128, b : i128) -> (i128, i128, i128)
@@ -104,6 +109,7 @@ pub mod crypto_math
         {
             if b & 1 == 1
             {
+                // This line will cause it to fail with numbers >= 2**127
                 x = ( x  + y ) % n;
             }
             y = (y << 1) % n;
@@ -119,17 +125,22 @@ pub mod crypto_math
     (mut base: u128, mut exponent: u128, modulus: u128) -> u128
     {
         let mut result: u128 = 1;
+        // x**y % 1 == 0 for any x or y
         if modulus <= 1
         {
             return 0;
         }
         
+        // Reduce base to a congruent element in the given modulus
         base = base % modulus;
+        // If the base is congruent to 0 or 1 in the given modulus, the 
+        // result of exponentiation will always be the number itself
         if base <= 1
         {
             return base;
         }
 
+        // Square multiply algorithm
         while exponent > 0
         {
             if exponent & 1 == 1
@@ -151,10 +162,13 @@ pub mod crypto_math
         extern crate rand;
         use rand::Rng;
 
+        // Use the fastest method for whatever size the number is
         match number
         {
+            // Use a lookup table for small numbers
             0 | 1 | 4 | 6 | 8 | 9 | 10 => return false,
             2 | 3 | 5 | 7 | 11 => return true,
+            // for numbers 12 to 64, use a custom boolean expression
             12..=64 =>
             {
                 if number & 1 == 0
@@ -167,6 +181,8 @@ pub mod crypto_math
                                         number & 4 == 4,
                                         number & 2 == 2 ];
                 // Boolean expression for some 6 bit even numbers and all 6 bit primes above 10
+                // Numbers which wouldn't reach this point were considered dontcares to simplify
+                // the expression
                 return (!bits[0] && !bits[2] && !bits[3]) ||
                     (!bits[0] && !bits[1] && !bits[4]) ||
                     (!bits[1] &&  bits[2] && !bits[3]) ||
@@ -176,8 +192,10 @@ pub mod crypto_math
                     ( bits[0] && !bits[1] &&  bits[2] &&  bits[4]) || 
                     ( bits[0] &&  bits[2] && !bits[3] &&  bits[4]); 
             },
+            // For numbers greater than 64 bits use Miller-Rabbin
             _ => 
             {
+                // Make sure the number ends in 1, 3, 7 or 9
                 if number & 1 == 0 || number % 5 == 0
                 {
                     return false;
@@ -213,15 +231,15 @@ pub mod crypto_math
     }
 
     /*
-     * Generates a random prime number
+     * Generates a random bits-size prime number
      * this function is cryptographically secure.
      * This does not ensure the primes will be
      * suitable for use in RSA
      */
     pub fn rand_prime
-    () -> u128
+    (bits : usize) -> u128
     {
-        let max = 1 << 50;//1 << 127;
+        let max = 1 << (bits - 1);
         let min = 2;
         let mut number = rand_num(min, max);
         while !is_prime(number)

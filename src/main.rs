@@ -23,30 +23,31 @@ fn factorize_all()
     }
 }
 
+
+/*
+ * Takes a running average of how long it takes to find a primitive in an
+ * 128 bit modulus
+ */
 fn benchmark()
 {
     use crate::crypto_math::crypto_math;
-    use rand::Rng;
     use std::time::Instant;
     use std::time::Duration;
-
-    //let lim: u128 = 1 << 50;//(1 << 127) + ((1 << 127) - 1);
-
+    
+    let size_in_bits : usize = 50;//128;
     let mut ans: u128;
-    let mut rng = rand::thread_rng();
     let mut runs = 0;
     let mut total = Duration::ZERO;
-    let mut average;// = Duration::ZERO;
+    let mut average;
 
     loop
     {
-        //let x: u128 = rng.gen_range(0..lim);
-        let x: u128 = crypto_math::rand_prime();
+        let x: u128 = crypto_math::rand_prime(size_in_bits);
         
         runs += 1;
         print!("{}: {}...",runs,x);
         let now = Instant::now();
-        ans = crypto_math::find_primitive_root(x);//crypto_math::eulers_phi(x);
+        ans = crypto_math::find_primitive_root(x);
         let elapsed = now.elapsed();
         print!("{} Done!",ans);
         total += elapsed;
@@ -116,18 +117,6 @@ fn main()
             {
                 benchmark()
             },
-            "challenge" =>
-            {
-                let numbers = [ 203, 63373, 3254102921,14974358581872710701, 14708973168512866951,165441675456672998379137992434160183811, 223992306552901139411223820675421253569 ];
-                    //1021159643789587;
-                    //118349971320947570681513251459901556469;
-                    //224641912456943976273584427524131892551;
-                for number in numbers
-                {
-                    let factorized = crypto_math::prime_factorize(number);
-                    println!("{} = {:?}",number, factorized);
-                }
-            },
             "legendre" =>
             {
                 let number : u128 = args[2].parse().unwrap();
@@ -162,7 +151,7 @@ fn main()
             {
                 loop
                 {
-                    let number = crypto_math::rand_prime();
+                    let number = crypto_math::rand_prime(128);
                     println!("{}",number);
                 }
             },
