@@ -257,7 +257,6 @@ pub mod crypto_math
     (n: u128) -> Option<u128>
     {
         use std::cmp::min;
-
         // Declare variables
         let mut x : u128;
         let mut y : u128;
@@ -339,13 +338,63 @@ pub mod crypto_math
      * Returns a factor of a given number
      * Failure returns the original number
      */
-    pub fn factorize
+    pub unsafe fn factorize
     (number: u128) -> u128
     {
+        use std::thread;
+        use std::sync::mpsc;
+        use stop_thread::kill_thread_graceful;
+        let factor : u128;
+        
         // Attempt pollard p-1 factorization with 
-        return match pollard_p1(number, 1000)
+        
+        match pollard_p1(number, 1000)
+        {
+            None => {
+                // add a way to close threads when the first thread finds a result
+                let (tx, rx) = mpsc::channel();
+                let mut handles = vec![];
+
+                for _thread_count in 0..14
+                {
+                    let tx_clone = tx.clone();
+                    let process = thread::spawn( move || 
+                        {
+                            let result = pollard_brent(number);
+                            match tx_clone.send(result)
+                            {
+                                Ok(_) | Err(_) => { drop( tx_clone ); }
+                            };
+                        });
+                    handles.push(process);
+                }
+                let result = rx.recv();
+                match result
+                {
+                    Ok(val) => { 
+                        factor = match val
+                        {
+                            None => number,
+                            Some(num) => num
+                        };
+                        drop(tx);
+                        for handle in handles
+                        {
+                            kill_thread_graceful(handle);
+                        }
+                    },
+                    Err(_err) => { factor = number; }
+                };
+            },
+            Some(number) => {
+                factor = number;
+            }
+        }
+        /* 
+        factor =  match pollard_p1(number, 1000)
             {
                 // If pollard p-1 failed, try pollard brent
+                // TODO: Add multithreading and a Quadratic Seive
                 None => match pollard_brent(number) 
                         { 
                             Some(num) => num,
@@ -353,14 +402,16 @@ pub mod crypto_math
                             None => number 
                         },
                 Some(num) => num
-            }
+            };
+        */
+        return factor;
     }
 
     /*
      * Returns a list of the prime factors of a number and their exponants
      * p**k -> (p,k)
      */
-    pub fn prime_factorize
+    pub unsafe fn prime_factorize
     (mut number : u128 ) -> Vec<(u128,u32)>
     {
         let mut prime_factors : Vec<(u128,u32)> = Vec::<(u128,u32)>::new();
@@ -388,7 +439,7 @@ pub mod crypto_math
     /*
      * Eulers Phi function
      */
-    pub fn eulers_phi
+    pub unsafe fn eulers_phi
     (mut number: u128) -> u128
     {
         let mut pot : u128 = 1;
@@ -502,7 +553,7 @@ pub mod crypto_math
      * an even value of n is given but will not 
      * give a correct result
      */
-    pub fn jacobi_symbol
+    pub unsafe fn jacobi_symbol
     (a : u128, n : u128) -> i8
     {
         let n_factors = prime_factorize(n);
@@ -525,7 +576,7 @@ pub mod crypto_math
     /*
      * Calculates the kronecker symbol for two numbers
      */
-    pub fn kronecker_symbol
+    pub unsafe fn kronecker_symbol
     (a : u128, n : u128) -> i8
     {
         let n_factors = prime_factorize(n);
@@ -572,7 +623,7 @@ pub mod crypto_math
      * Calculates the inverse of a member of
      * a integer field
      */
-    pub fn mod_inv
+    pub unsafe fn mod_inv
     (number: u128, modulus: u128) -> u128
     {
         if number == 1 || number == 0
@@ -588,7 +639,7 @@ pub mod crypto_math
     /*
      * Finds a random primitive of a prime field
      */
-    pub fn find_primitive_root
+    pub unsafe fn find_primitive_root
     (number : u128) -> u128
     {
         let totient : u128 = eulers_phi(number);
@@ -627,7 +678,7 @@ pub mod crypto_math
      * Finds all primitive roots of a prime field
      * Returns a vector of primitives in order from least to greatest
      */
-    pub fn find_primitive_roots
+    pub unsafe fn find_primitive_roots
     (number : u128) -> Vec<u128>
     {
         let totient : u128 = eulers_phi(number);
@@ -673,7 +724,7 @@ pub mod crypto_math
      * Shanks algoritm for the discrete log problem
      * Returns 0 for non-prime moduli
      */
-    pub fn shanks
+    pub unsafe fn shanks
     (alpha: u128, beta: u128, modulus: u128) -> u128
     {
 

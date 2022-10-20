@@ -3,7 +3,7 @@
 mod crypto_math;
 mod misc_functions;
 
-fn factorize_all()
+unsafe fn factorize_all()
 {
     use crate::crypto_math::crypto_math;
     let mut x: u128 = 0;
@@ -28,7 +28,7 @@ fn factorize_all()
  * Takes a running average of how long it takes to find a primitive in an
  * 128 bit modulus
  */
-fn benchmark()
+unsafe fn benchmark()
 {
     use crate::crypto_math::crypto_math;
     use std::time::Instant;
@@ -55,7 +55,6 @@ fn benchmark()
         println!(" Average: {:.5?}", average);
     }
 }
-
 fn main() 
 {
     /*
@@ -68,7 +67,8 @@ fn main()
 
     // Get commandline args
     let args: Vec<String> = env::args().collect();
-    
+    unsafe 
+    {
     // Check for the correct number of args
     if args.len() < 2
     {
@@ -177,6 +177,7 @@ fn main()
                 println!("incorrect usage")
             }
         }
+    }
     }
 }
 
