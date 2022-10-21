@@ -344,66 +344,85 @@ pub mod crypto_math
         use std::thread;
         use std::sync::mpsc;
         use stop_thread::kill_thread_graceful;
+      
+        // The number of concurrent threads to attempt factorization
+        const THREAD_COUNT : usize = 8;
+
+        // Result of factorization
         let factor : u128;
-        
+
+        // 1 and 0 should return 1 or 0 respectivly
+        if number <= 1
+        {
+            return number; 
+        }
+
         // Attempt pollard p-1 factorization with 
-        
         match pollard_p1(number, 1000)
         {
+            Some(number) => {
+                factor = number;
+            },
+
+            // If pollard p-1 factorization fails, try multiple instances of 
+            // pollard-brent
             None => {
-                // add a way to close threads when the first thread finds a result
+                // Run THREAD_COUNT pollard-brent instances at the same time
+                // and return the first result any thread finds
                 let (tx, rx) = mpsc::channel();
                 let mut handles = vec![];
 
-                for _thread_count in 0..14
+                // Create each thread
+                for _thread_count in 1..THREAD_COUNT
                 {
                     let tx_clone = tx.clone();
                     let process = thread::spawn( move || 
                         {
                             let result = pollard_brent(number);
+                            // Send the result through the channel
                             match tx_clone.send(result)
                             {
+                                // once a result is found and sent, close
+                                // the channel
                                 Ok(_) | Err(_) => { drop( tx_clone ); }
                             };
                         });
+                    // Store the thread handle to close them later
                     handles.push(process);
                 }
+                
+                // Block until the first result is send through the channel
                 let result = rx.recv();
+                
+                // close the final channel
+                drop(tx);
+                drop(rx);
+
+                // Deal with failures or errors in the channel
                 match result
                 {
-                    Ok(val) => { 
+                    Ok(val) => {
                         factor = match val
                         {
                             None => number,
                             Some(num) => num
                         };
-                        drop(tx);
-                        for handle in handles
-                        {
-                            kill_thread_graceful(handle);
-                        }
                     },
                     Err(_err) => { factor = number; }
                 };
-            },
-            Some(number) => {
-                factor = number;
+
+                // Create threads to close factorization threads 
+                let ending_threads = thread::spawn(move || {
+                for handle in handles
+                    {
+                        kill_thread_graceful(handle);
+                    }
+                });
+
+                // Close all threads
+                ending_threads.join().unwrap();
             }
         }
-        /* 
-        factor =  match pollard_p1(number, 1000)
-            {
-                // If pollard p-1 failed, try pollard brent
-                // TODO: Add multithreading and a Quadratic Seive
-                None => match pollard_brent(number) 
-                        { 
-                            Some(num) => num,
-                            //return the original number if no factor was found
-                            None => number 
-                        },
-                Some(num) => num
-            };
-        */
         return factor;
     }
 
@@ -420,11 +439,13 @@ pub mod crypto_math
             //Replace the factorization alg with a quadratic seive for integers <30 digits
             let mut exp = 0;
             let mut factor = factorize(number);
+            //println!("Found a factor: {}", factor);
             // Find a prime factor
             while !is_prime(factor)
             {
                 factor = factorize(factor);
             }
+            //println!("Found a prime factor: {}", factor);
             // Count how many times that factor appears
             while number % factor == 0
             {
@@ -525,6 +546,149 @@ pub mod crypto_math
     }
 
     /*
+     * Finds a random primitive of a prime field
+     */
+    pub unsafe fn find_primitive_root
+    (number : u128) -> u128
+    {
+        let totient : u128 = eulers_phi(number);
+        let prime_factors : Vec<(u128,u32)> = prime_factorize(totient);
+        let mut powers : Vec<u128> = Vec::<u128>::new();
+        
+        for factor in &prime_factors
+        {
+            powers.push(totient/ factor.0);
+        }
+        
+        // pick a random elements and check if they're primitive until one is found
+        loop
+        {
+            let primitive = rand_num(2,totient);
+            if !is_quadratic_residue(primitive, number)
+            {
+                let mut is_primitive = true;
+                for power in &powers
+                {
+                    let test = mod_pow(primitive, *power, number);
+                    if test == 1
+                    {
+                        is_primitive = false;
+                    }
+                }
+                if is_primitive
+                {
+                    return primitive;
+                }
+            }
+        }
+    }
+
+    /*
+     * Finds all primitive roots of a prime field
+     * Returns a vector of primitives in order from least to greatest
+     */
+    pub unsafe fn find_primitive_roots
+    (number : u128) -> Vec<u128>
+    {
+        let totient : u128 = eulers_phi(number);
+        let root_count : u128 = eulers_phi(number - 1);
+        let prime_factors : Vec<(u128,u32)> = prime_factorize(totient);
+        let mut powers : Vec<u128> = Vec::<u128>::new();
+        let mut primitives : Vec<u128> = Vec::<u128>::new();
+        
+        for factor in &prime_factors
+        {
+            powers.push(totient/ factor.0);
+        }
+        
+        // itterate over all elements and check if they're primitive until they are all found
+        for primitive in 1..number
+        {
+            // A quadratic residue cannot be a primitive element
+            if !is_quadratic_residue(primitive, number)
+            {
+                let mut is_primitive = true;
+                for power in &powers
+                {
+                    let test = mod_pow(primitive, *power, number);
+                    if test == 1
+                    {
+                        is_primitive = false;
+                    }
+                }
+                if is_primitive
+                {
+                    primitives.push(primitive);
+                }
+                if root_count == primitives.len().try_into().unwrap()
+                {
+                    break;
+                }
+            }
+        }
+        return primitives;
+    }
+
+    /*
+     * Calculates the inverse of a member of
+     * a integer field
+     */
+    pub unsafe fn mod_inv
+    (number: u128, modulus: u128) -> u128
+    {
+        if number == 1 || number == 0
+        {
+            return number;
+        }
+        let phi = eulers_phi(modulus);
+        let inv_exp = phi - 1;
+        let inverse = mod_pow ( number, inv_exp, modulus );
+        return inverse;
+    }
+    
+    /*
+     * Shanks algoritm for the discrete log problem
+     * Returns 0 for non-prime moduli
+     */
+    pub unsafe fn shanks
+    (alpha: u128, beta: u128, modulus: u128) -> u128
+    {
+
+        use std::collections::HashMap;
+        use crate::misc_functions::misc;
+        
+        if is_prime(modulus)
+        {
+            let mut l1: Vec<(u128 , u128)> = Vec::<(u128 , u128)>::new();
+            let mut l2 = HashMap::new();
+            
+            // Calculate the ceiling of the square root
+            let root = misc::ceil_sqrt(modulus);
+            
+            // pre-calculate alpha^-1 for use later
+            let alpha_inv = mod_inv(alpha, modulus);
+            
+            // compute (j, a ^ mj mod n) for l1 and (j, b * a ^ -j mod n) for l2
+            for j in 0..root
+            {
+                let alpha_inv_j = mod_pow(alpha_inv, j, modulus);
+                l1.push((j, mod_pow(alpha, root * j, modulus)));
+                l2.insert( mod_mul(alpha_inv_j, beta, modulus), j);
+            }
+            // Find an element of each list which have the same second value
+            for pair in l1
+            {
+                let twin = l2.get(&pair.1);
+                if !twin.is_none()
+                {
+                    return mod_mul(root, pair.0, modulus) + twin.unwrap() % modulus;
+                }
+            }
+        }
+        return 0;
+    }
+
+    /*
      * Finds the Legendre symbol for two numbers
      * this wont fail or return any warning 
      * if a non-prime or even number is given for p,
@@ -618,149 +782,5 @@ pub mod crypto_math
         }
         return kronecker;
     }
-
-    /*
-     * Calculates the inverse of a member of
-     * a integer field
-     */
-    pub unsafe fn mod_inv
-    (number: u128, modulus: u128) -> u128
-    {
-        if number == 1 || number == 0
-        {
-            return number;
-        }
-        let phi = eulers_phi(modulus);
-        let inv_exp = phi - 1;
-        let inverse = mod_pow ( number, inv_exp, modulus );
-        return inverse;
-    }
-
-    /*
-     * Finds a random primitive of a prime field
-     */
-    pub unsafe fn find_primitive_root
-    (number : u128) -> u128
-    {
-        let totient : u128 = eulers_phi(number);
-        let prime_factors : Vec<(u128,u32)> = prime_factorize(totient);
-        let mut powers : Vec<u128> = Vec::<u128>::new();
-        
-        for factor in &prime_factors
-        {
-            powers.push(totient/ factor.0);
-        }
-        
-        // pick a random elements and check if they're primitive until one is found
-        loop
-        {
-            let primitive = rand_num(2,totient);
-            if !is_quadratic_residue(primitive, number)
-            {
-                let mut is_primitive = true;
-                for power in &powers
-                {
-                    let test = mod_pow(primitive, *power, number);
-                    if test == 1
-                    {
-                        is_primitive = false;
-                    }
-                }
-                if is_primitive
-                {
-                    return primitive;
-                }
-            }
-        }
-    }
-
-    /*
-     * Finds all primitive roots of a prime field
-     * Returns a vector of primitives in order from least to greatest
-     */
-    pub unsafe fn find_primitive_roots
-    (number : u128) -> Vec<u128>
-    {
-        let totient : u128 = eulers_phi(number);
-        let root_count : u128 = eulers_phi(number - 1);
-        let prime_factors : Vec<(u128,u32)> = prime_factorize(totient);
-        let mut powers : Vec<u128> = Vec::<u128>::new();
-        let mut primitives : Vec<u128> = Vec::<u128>::new();
-        
-        for factor in &prime_factors
-        {
-            powers.push(totient/ factor.0);
-        }
-        
-        // itterate over all elements and check if they're primitive until they are all found
-        for primitive in 1..number
-        {
-            // A quadratic residue cannot be a primitive element
-            if !is_quadratic_residue(primitive, number)
-            {
-                let mut is_primitive = true;
-                for power in &powers
-                {
-                    let test = mod_pow(primitive, *power, number);
-                    if test == 1
-                    {
-                        is_primitive = false;
-                    }
-                }
-                if is_primitive
-                {
-                    primitives.push(primitive);
-                }
-                if root_count == primitives.len().try_into().unwrap()
-                {
-                    break;
-                }
-            }
-        }
-        return primitives;
-    }
-
-    /*
-     * Shanks algoritm for the discrete log problem
-     * Returns 0 for non-prime moduli
-     */
-    pub unsafe fn shanks
-    (alpha: u128, beta: u128, modulus: u128) -> u128
-    {
-
-        use std::collections::HashMap;
-        use crate::misc_functions::misc;
-        
-        if is_prime(modulus)
-        {
-            let mut l1: Vec<(u128 , u128)> = Vec::<(u128 , u128)>::new();
-            let mut l2 = HashMap::new();
-            
-            // Calculate the ceiling of the square root
-            let root = misc::ceil_sqrt(modulus);
-            
-            // pre-calculate alpha^-1 for use later
-            let alpha_inv = mod_inv(alpha, modulus);
-            
-            // compute (j, a ^ mj mod n) for l1 and (j, b * a ^ -j mod n) for l2
-            for j in 0..root
-            {
-                let alpha_inv_j = mod_pow(alpha_inv, j, modulus);
-                l1.push((j, mod_pow(alpha, root * j, modulus)));
-                l2.insert( mod_mul(alpha_inv_j, beta, modulus), j);
-            }
-            // Find an element of each list which have the same second value
-            for pair in l1
-            {
-                let twin = l2.get(&pair.1);
-                if !twin.is_none()
-                {
-                    return mod_mul(root, pair.0, modulus) + twin.unwrap() % modulus;
-                }
-            }
-        }
-        return 0;
-    }
-
-}
+   }
     

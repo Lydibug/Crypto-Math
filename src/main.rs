@@ -6,7 +6,7 @@ mod misc_functions;
 unsafe fn factorize_all()
 {
     use crate::crypto_math::crypto_math;
-    let mut x: u128 = 0;
+    let mut x: u128 = 1;
     loop
     {
         if crypto_math::is_prime(x)
@@ -34,7 +34,7 @@ unsafe fn benchmark()
     use std::time::Instant;
     use std::time::Duration;
     
-    let size_in_bits : usize = 50;//128;
+    const SIZE_IN_BITS : usize = 128;
     let mut ans: u128;
     let mut runs = 0;
     let mut total = Duration::ZERO;
@@ -42,12 +42,12 @@ unsafe fn benchmark()
 
     loop
     {
-        let x: u128 = crypto_math::rand_prime(size_in_bits);
-        
+        let x: u128 = crypto_math::rand_prime(SIZE_IN_BITS);
         runs += 1;
         print!("{}: {}...",runs,x);
         let now = Instant::now();
         ans = crypto_math::find_primitive_root(x);
+        //ans = crypto_math::factorize(x);
         let elapsed = now.elapsed();
         print!("{} Done!",ans);
         total += elapsed;
@@ -78,17 +78,13 @@ fn main()
     {
         match args[1].as_str()
         {
-            "totient" =>
+            "bench" => 
             {
-                let number: u128 = args[2].parse().unwrap();
-                let totient = crypto_math::eulers_phi(number);
-                println!("phi({}) = {}", number, totient);
+                benchmark()
             },
-            "invert" =>
+            "factorall" =>
             {
-                let number: u128 = args[2].parse().unwrap();
-                let modulus: u128 = args[3].parse().unwrap();
-                println!("{}^-1 % {} = {}", number, modulus, crypto_math::mod_inv(number,modulus));
+                factorize_all();
             },
             "factor" =>
             {
@@ -105,6 +101,18 @@ fn main()
                     println!("{} = {} * {}", product, factor, product/factor);
                 }
             },
+            "totient" =>
+            {
+                let number: u128 = args[2].parse().unwrap();
+                let totient = crypto_math::eulers_phi(number);
+                println!("phi({}) = {}", number, totient);
+            },
+            "invert" =>
+            {
+                let number: u128 = args[2].parse().unwrap();
+                let modulus: u128 = args[3].parse().unwrap();
+                println!("{}^-1 % {} = {}", number, modulus, crypto_math::mod_inv(number,modulus));
+            },
             "shanks" =>
             {
                 let base: u128 = args[2].parse().unwrap();
@@ -112,10 +120,6 @@ fn main()
                 let modulus: u128 = args[4].parse().unwrap();
                 let log = crypto_math::shanks(base, number, modulus);
                 println!("{}",log);
-            },
-            "bench" => 
-            {
-                benchmark()
             },
             "legendre" =>
             {
