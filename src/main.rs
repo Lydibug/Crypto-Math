@@ -6,7 +6,7 @@ mod misc_functions;
 fn factorize_all()
 {
     use crate::crypto_math::crypto_math;
-    let mut x: u128 = 3;
+    let mut x: u128 = 0;
     loop
     {
         if crypto_math::is_prime(x)

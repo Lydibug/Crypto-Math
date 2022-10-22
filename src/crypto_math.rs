@@ -387,7 +387,7 @@ pub mod crypto_math
     pub fn factorize
     (number: u128) -> u128
     {
-        // 0 and 1 should return 0 or 1 respectivly
+        // Numbers equal to or less than three should return themself
         if number <= 3
         {
             return number;
