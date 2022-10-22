@@ -323,17 +323,21 @@ pub mod crypto_math
     pub fn trial_division
     (number : u128, attempts : u32) -> Option<u128>
     {
+        use crate::misc_functions::misc;
         use std::sync::{Arc,Mutex};
         use std::thread;
         let factor = Arc::new(Mutex::new(1));
         let mut handles = vec![];
 
+        let root = misc::ceil_sqrt(number);
         for _thread_count in 0..attempts
         {
             let factor = Arc::clone(&factor);
             let handle = thread::spawn(move || 
                     {
-                        let attempt = rand_num(2,number - 1);
+                        // Numbers greater than the square root of a given number
+                        // are more likely to have a common denominator with that number
+                        let attempt = rand_num(root,number - 1);
                         let denom = gcd(number, attempt);
                         // If a factor was found, set the factor variable to it
                         if denom != 1
@@ -357,7 +361,6 @@ pub mod crypto_math
             return None;
         }
         return Some(result);
-
     }
 
     /*
