@@ -388,13 +388,13 @@ pub mod crypto_math
     (number: u128) -> u128
     {
         // 0 and 1 should return 0 or 1 respectivly
-        if number <= 1
+        if number <= 3
         {
             return number;
         }
 
+        // Number of concurrent trial division attempts
         let attempts = 128 - number.leading_zeros();
-        println!("attempts: {}", attempts);
 
         // Attempt trial devision
         return match trial_division(number, attempts)
