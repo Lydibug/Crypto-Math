@@ -34,7 +34,7 @@ unsafe fn benchmark()
     use std::time::Instant;
     use std::time::Duration;
     
-    const SIZE_IN_BITS : usize = 128;
+    const SIZE_IN_BITS : usize = 50;//128;
     let mut ans: u128;
     let mut runs = 0;
     let mut total = Duration::ZERO;

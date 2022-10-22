@@ -316,7 +316,47 @@ pub mod crypto_math
         }
         return if d == n { None } else { Some(d) };
     }
+    /*  
+     * Simple trial division
+     */
+    pub fn trial_division
+    (number : u128, attempts : u32) -> Option<u128>
+    {   
+        use std::sync::{Arc,Mutex};
+        use std::thread;
+        let factor = Arc::new(Mutex::new(1));
+        let mut handles = vec![];
 
+        for _thread_count in 0..attempts
+        {   
+            let factor = Arc::clone(&factor);
+            let handle = thread::spawn(move ||  
+                    {   
+                        let attempt = rand_num(2,number - 1); 
+                        let denom = gcd(number, attempt);
+                        if denom != 1
+                        {   
+                            let mut fac = factor.lock().unwrap();
+                            *fac = denom;
+                        }   
+                    }); 
+            handles.push(handle);
+        }
+
+        // End all threads
+        for handle in handles 
+        {   
+            handle.join().unwrap();
+        }   
+
+        let result = *factor.lock().unwrap();
+        if result == 1
+        {   
+            return None;
+        }   
+        return Some(result);
+
+    }   
     /*
      * Pollard p-1 factorization algorithm
      * Failure returns None
@@ -357,70 +397,79 @@ pub mod crypto_math
             return number; 
         }
 
+        let attempts = 128 - number.leading_zeros();
+
         // Attempt pollard p-1 factorization with 
-        match pollard_p1(number, 1000)
+        match trial_division(number, attempts)
         {
-            Some(number) => {
-                factor = number;
-            },
-
-            // If pollard p-1 factorization fails, try multiple instances of 
-            // pollard-brent
+            Some(number) => { factor = number; },
             None => {
-                // Run THREAD_COUNT pollard-brent instances at the same time
-                // and return the first result any thread finds
-                let (tx, rx) = mpsc::channel();
-                let mut handles = vec![];
-
-                // Create each thread
-                for _thread_count in 1..THREAD_COUNT
-                {
-                    let tx_clone = tx.clone();
-                    let process = thread::spawn( move || 
-                        {
-                            let result = pollard_brent(number);
-                            // Send the result through the channel
-                            match tx_clone.send(result)
-                            {
-                                // once a result is found and sent, close
-                                // the channel
-                                Ok(_) | Err(_) => { drop( tx_clone ); }
-                            };
-                        });
-                    // Store the thread handle to close them later
-                    handles.push(process);
-                }
                 
-                // Block until the first result is send through the channel
-                let result = rx.recv();
-                
-                // close the final channel
-                drop(tx);
-                drop(rx);
-
-                // Deal with failures or errors in the channel
-                match result
+                match pollard_p1(number, 1000)
                 {
-                    Ok(val) => {
-                        factor = match val
-                        {
-                            None => number,
-                            Some(num) => num
-                        };
+                    Some(number) => {
+                        factor = number;
                     },
-                    Err(_err) => { factor = number; }
-                };
 
-                // Create threads to close factorization threads 
-                let ending_threads = thread::spawn(move || {
-                for handle in handles
-                    {
-                        kill_thread_graceful(handle);
+                    // If pollard p-1 factorization fails, try multiple instances of 
+                    // pollard-brent
+                    None => {
+                        // Run THREAD_COUNT pollard-brent instances at the same time
+                        // and return the first result any thread finds
+                        let (tx, rx) = mpsc::channel();
+                        let mut handles = vec![];
+
+                        // Create each thread
+                        for _thread_count in 1..THREAD_COUNT
+                        {
+                            let tx_clone = tx.clone();
+                            let process = thread::spawn( move || 
+                                {
+                                    let result = pollard_brent(number);
+                                    // Send the result through the channel
+                                    match tx_clone.send(result)
+                                    {
+                                        // once a result is found and sent, close
+                                        // the channel
+                                        Ok(_) | Err(_) => { drop( tx_clone ); }
+                                    };
+                                });
+                            // Store the thread handle to close them later
+                            handles.push(process);
+                        }
+                        
+                        // Block until the first result is send through the channel
+                        let result = rx.recv();
+                        
+                        // close the final channel
+                        drop(tx);
+                        drop(rx);
+
+                        // Deal with failures or errors in the channel
+                        match result
+                        {
+                            Ok(val) => {
+                                factor = match val
+                                {
+                                    None => number,
+                                    Some(num) => num
+                                };
+                            },
+                            Err(_err) => { factor = number; }
+                        };
+
+                        // Create threads to close factorization threads 
+                        let ending_threads = thread::spawn(move || {
+                        for handle in handles
+                            {
+                                kill_thread_graceful(handle);
+                            }
+                        });
+
+                        // Close all threads
+                        ending_threads.join().unwrap();
                     }
-                });
-
-                // Close all threads
-                ending_threads.join().unwrap();
+                }
             }
         }
         return factor;
