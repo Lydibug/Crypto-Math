@@ -6,7 +6,7 @@ mod misc_functions;
 fn factorize_all()
 {
     use crate::crypto_math::crypto_math;
-    let mut x: u128 = 0;
+    let mut x: u128 = 3;
     loop
     {
         if crypto_math::is_prime(x)
@@ -105,6 +105,10 @@ fn main()
                     println!("{} = {} * {}", product, factor, product/factor);
                 }
             },
+            "factorall" =>
+            {
+                factorize_all();
+            }
             "shanks" =>
             {
                 let base: u128 = args[2].parse().unwrap();

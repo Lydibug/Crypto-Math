@@ -1,7 +1,6 @@
 #[allow(dead_code)]
 pub mod crypto_math
 {
-
     /*
      * Generates a uniformly random 128 bit number between min and max
      */
@@ -319,6 +318,52 @@ pub mod crypto_math
     }
 
     /*
+     * Simple trial division
+     */
+    pub fn trial_division
+    (number : u128, attempts : u32) -> Option<u128>
+    {
+        use std::sync::{Arc,Mutex};
+        use std::thread;
+        let factor = Arc::new(Mutex::new(1));
+        let mut handles = vec![];
+
+        for thread_count in 0..attempts
+        {
+            let factor = Arc::clone(&factor);
+            let handle = thread::spawn(move || 
+                    {
+                        let attempt = rand_num(2,number - 1);
+                        let denom = gcd(number, attempt);
+                        if denom != 1
+                        {
+                            //println!("Thread %{} found a solution: {}", thread_count, denom);
+                            let mut fac = factor.lock().unwrap();
+                            *fac = denom;
+                        }
+                        else
+                        {
+                            //println!("Thread %{} failed to find a solution", thread_count);
+                        }
+                    });
+            handles.push(handle);
+        }
+
+        for handle in handles 
+        {
+            handle.join().unwrap();
+        }
+
+        let result = *factor.lock().unwrap();
+        if result == 1
+        {
+            return None;
+        }
+        return Some(result);
+
+    }
+
+    /*
      * Pollard p-1 factorization algorithm
      * Failure returns None
      */
@@ -342,18 +387,33 @@ pub mod crypto_math
     pub fn factorize
     (number: u128) -> u128
     {
-        // Attempt pollard p-1 factorization with 
-        return match pollard_p1(number, 1000)
-            {
-                // If pollard p-1 failed, try pollard brent
-                None => match pollard_brent(number) 
-                        { 
-                            Some(num) => num,
-                            //return the original number if no factor was found
-                            None => number 
-                        },
-                Some(num) => num
-            }
+        // 0 and 1 should return 0 or 1 respectivly
+        if number <= 1
+        {
+            return number;
+        }
+
+        let attempts = 128 - number.leading_zeros();
+        println!("attempts: {}", attempts);
+
+        // Attempt trial devision
+        return match trial_division(number, attempts)
+        {
+            None =>
+                // Attempt pollard p-1 factorization with 
+                match pollard_p1(number, 1000)
+                {
+                    // If pollard p-1 failed, try pollard brent
+                    None => match pollard_brent(number) 
+                            { 
+                                Some(num) => num,
+                                //return the original number if no factor was found
+                                None => number 
+                            },
+                    Some(num) => num
+                },
+            Some(num) => num
+        };
     }
 
     /*
@@ -380,6 +440,7 @@ pub mod crypto_math
                 exp += 1;
                 number /= factor;
             }
+            // Add the factor, exponant pair to a list
             prime_factors.push((factor,exp));
         }
         return prime_factors
