@@ -488,13 +488,13 @@ pub mod crypto_math
             //Replace the factorization alg with a quadratic seive for integers <30 digits
             let mut exp = 0;
             let mut factor = factorize(number);
-            //println!("Found a factor: {}", factor);
             // Find a prime factor
             while !is_prime(factor)
             {
                 factor = factorize(factor);
             }
-            //println!("Found a prime factor: {}", factor);
+
+            // TOTO: Add checking for prime powers
             // Count how many times that factor appears
             while number % factor == 0
             {
