@@ -328,27 +328,24 @@ pub mod crypto_math
         let factor = Arc::new(Mutex::new(1));
         let mut handles = vec![];
 
-        for thread_count in 0..attempts
+        for _thread_count in 0..attempts
         {
             let factor = Arc::clone(&factor);
             let handle = thread::spawn(move || 
                     {
                         let attempt = rand_num(2,number - 1);
                         let denom = gcd(number, attempt);
+                        // If a factor was found, set the factor variable to it
                         if denom != 1
                         {
-                            //println!("Thread %{} found a solution: {}", thread_count, denom);
                             let mut fac = factor.lock().unwrap();
                             *fac = denom;
-                        }
-                        else
-                        {
-                            //println!("Thread %{} failed to find a solution", thread_count);
                         }
                     });
             handles.push(handle);
         }
 
+        // End all threads
         for handle in handles 
         {
             handle.join().unwrap();
@@ -676,6 +673,7 @@ pub mod crypto_math
                         is_primitive = false;
                     }
                 }
+
                 if is_primitive
                 {
                     return primitive;
