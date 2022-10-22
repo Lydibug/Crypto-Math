@@ -391,8 +391,8 @@ pub mod crypto_math
         // Result of factorization
         let factor : u128;
 
-        // 1 and 0 should return 1 or 0 respectivly
-        if number <= 1
+        // Numbers less than three should return themselves
+        if number <= 3
         {
             return number; 
         }
