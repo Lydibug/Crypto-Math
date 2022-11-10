@@ -326,6 +326,8 @@ pub mod crypto_math
         use crate::misc_functions::misc;
         use std::sync::{Arc,Mutex};
         use std::thread;
+        
+        // To safely store results from the thread
         let factor = Arc::new(Mutex::new(1));
         let mut handles = vec![];
 
@@ -387,29 +389,52 @@ pub mod crypto_math
     pub fn factorize
     (number: u128) -> u128
     {
+
+        use crate::misc_functions::misc;
         // Numbers equal to or less than three should return themself
         if number <= 3
         {
             return number;
         }
 
-        // Number of concurrent trial division attempts
-        let attempts = 128 - number.leading_zeros();
+        // Remove the largest power of two
+        let power_of_two = 1 << number.trailing_zeros();
 
-        // Attempt trial devision
+        // If the original number is a power of two, return 2
+        if number == power_of_two
+        {
+            return 2;
+        }
+        // If the number is even return the largest power of two
+        else if power_of_two > 1
+        {
+            return power_of_two;
+        }
+
+        // Number of concurrent trial division attempts
+        let attempts = 128 - number.leading_zeros(); // Size of the number in bits
+
+        // Try each method from fastest to slowest, until one finds a solution
         return match trial_division(number, attempts)
         {
             None =>
-                // Attempt pollard p-1 factorization with 
+                // If trial factorization failed, attempt pollard p-1 factorization
                 match pollard_p1(number, 1000)
                 {
-                    // If pollard p-1 failed, try pollard brent
-                    None => match pollard_brent(number) 
-                            { 
-                                Some(num) => num,
-                                //return the original number if no factor was found
-                                None => number 
-                            },
+                    None =>
+                        // If p-1 failed, attempt to find a root of the number
+                        match misc::perfect_power(number)
+                        {
+                            None => 
+                                // If the number is not a perfect power, try pollard brent
+                                match pollard_brent(number) 
+                                { 
+                                    Some(num) => num,
+                                    //return the original number if no factor was found
+                                    None => number 
+                                },
+                            Some(num) => num
+                        },
                     Some(num) => num
                 },
             Some(num) => num
