@@ -398,17 +398,18 @@ pub mod crypto_math
         }
 
         // Remove the largest power of two
-        let power_of_two = 1 << number.trailing_zeros();
+        let trailing_zeros = number.trailing_zeros();
+        let power_of_two = 1 << trailing_zeros;
 
         // If the original number is a power of two, return 2
         if number == power_of_two
         {
             return 2;
         }
-        // If the number is even return the largest power of two
+        // If the number is even return the cofactor of the largest power of two
         else if power_of_two > 1
         {
-            return power_of_two;
+            return number >> trailing_zeros;
         }
 
         // Number of concurrent trial division attempts
