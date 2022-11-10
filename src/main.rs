@@ -34,7 +34,7 @@ fn benchmark()
     use std::time::Instant;
     use std::time::Duration;
     
-    let size_in_bits : usize = 50;//128;
+    let size_in_bits : usize = 64;
     let mut ans: u128;
     let mut runs = 0;
     let mut total = Duration::ZERO;
