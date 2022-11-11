@@ -1,6 +1,8 @@
 #[allow(dead_code)]
 pub mod crypto_math
 {
+    // TODO: add arbitrary sized number support
+    
     /*
      * Generates a uniformly random 128 bit number between min and max
      */
