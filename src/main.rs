@@ -105,6 +105,12 @@ fn main()
                     println!("{} = {} * {}", product, factor, product/factor);
                 }
             },
+            "factors" =>
+            {
+                let product: u128 = args[2].parse().unwrap();
+                let factorization = crypto_math::prime_factorize(product);
+                println!("{} = {:?}", product, factorization);
+            },
             "factorall" =>
             {
                 factorize_all();

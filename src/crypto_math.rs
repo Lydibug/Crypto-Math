@@ -240,6 +240,7 @@ pub mod crypto_math
     pub fn rand_prime
     (bits : usize) -> u128
     {
+
         let max = 1 << (bits - 1);
         let min = 2;
         let mut number = rand_num(min, max);
@@ -247,6 +248,7 @@ pub mod crypto_math
         {
             number = rand_num(min, max);
         }
+        
         return number;
     }
 
