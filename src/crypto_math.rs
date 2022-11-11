@@ -332,6 +332,7 @@ pub mod crypto_math
         let mut handles = vec![];
 
         let root = misc::ceil_sqrt(number);
+        
         for _thread_count in 0..attempts
         {
             let factor = Arc::clone(&factor);
