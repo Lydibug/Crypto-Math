@@ -5,6 +5,8 @@ pub mod misc
     /*
      * Calculates the ceiling of the square root of a number
      * Uses a binary search to find the square root
+     *
+     * Fails on numbers over 64 bits
      */
     pub fn ceil_sqrt
     (number: u128) -> u128
