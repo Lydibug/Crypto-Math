@@ -65,7 +65,6 @@ fn main()
     // For using commandline arguments
     use std::env;
     use crate::crypto_math::crypto_math;
-
     // Get commandline args
     let args: Vec<String> = env::args().collect();
     

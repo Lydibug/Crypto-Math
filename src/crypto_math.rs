@@ -2,7 +2,6 @@
 pub mod crypto_math
 {
     // TODO: add arbitrary sized number support
-    
     /*
      * Generates a uniformly random 128 bit number between min and max
      */
@@ -125,7 +124,9 @@ pub mod crypto_math
     pub fn mod_pow 
     (mut base: u128, mut exponent: u128, modulus: u128) -> u128
     {
+
         let mut result: u128 = 1;
+        
         // x**y % 1 == 0 for any x or y
         if modulus <= 1
         {
@@ -140,7 +141,7 @@ pub mod crypto_math
         {
             return base;
         }
-
+        
         // Square multiply algorithm
         while exponent > 0
         {
@@ -325,26 +326,45 @@ pub mod crypto_math
      * Simple trial division
      */
     pub fn trial_division
-    (number : u128, attempts : u32) -> Option<u128>
+    (number : u128) -> Option<u128>
     {
         use crate::misc_functions::misc;
+        use std::collections::HashSet;
         use std::sync::{Arc,Mutex};
         use std::thread;
         
+        // Number of concurrent trial division attempts
+        let attempts = 128 - number.leading_zeros();
+     
         // To safely store results from the thread
         let factor = Arc::new(Mutex::new(1));
         let mut handles = vec![];
+        
+        // To make sure no number is tried twice
+        let mut numbers_tried = Arc::new(Mutex::new(HashSet::<u128>::new()));
+        
 
         let root = misc::ceil_sqrt(number);
-        
+       
         for _thread_count in 0..attempts
         {
             let factor = Arc::clone(&factor);
+            let numbers = Arc::clone(&numbers_tried);
             let handle = thread::spawn(move || 
                     {
+                        let mut nums = numbers.lock().unwrap();
+                        
                         // Numbers greater than the square root of a given number
                         // are more likely to have a common denominator with that number
-                        let attempt = rand_num(root,number - 1);
+                        let mut attempt = rand_num(root,number - 1);
+                        
+                        // Make sure a potential factor isn't checked twice
+                        while nums.contains(&attempt)
+                        {
+                            attempt = rand_num(root, number - 1);
+                        }
+                        nums.insert(attempt);
+                        //println!("Using GCD");
                         let denom = gcd(number, attempt);
                         // If a factor was found, set the factor variable to it
                         if denom != 1
@@ -365,8 +385,11 @@ pub mod crypto_math
         let result = *factor.lock().unwrap();
         if result == 1
         {
+            //println!("Trial division failed!");
             return None;
         }
+        
+        //println!("found with trial division");
         return Some(result);
     }
 
@@ -417,11 +440,8 @@ pub mod crypto_math
             return number >> trailing_zeros;
         }
 
-        // Number of concurrent trial division attempts
-        let attempts = 128 - number.leading_zeros(); // Size of the number in bits
-
         // Try each method from fastest to slowest, until one finds a solution
-        return match trial_division(number, attempts)
+        return match trial_division(number)
         {
             None =>
                 // If trial factorization failed, attempt pollard p-1 factorization
@@ -435,9 +455,9 @@ pub mod crypto_math
                                 // If the number is not a perfect power, try pollard brent
                                 match pollard_brent(number) 
                                 { 
-                                    Some(num) => num,
+                                    None => number,
                                     //return the original number if no factor was found
-                                    None => number 
+                                    Some(num) => num
                                 },
                             Some(num) => num
                         },

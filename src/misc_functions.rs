@@ -3,6 +3,57 @@
 pub mod misc
 {
     /*
+     * Calculates the hamming weight of a number
+     */
+    pub fn hamming_weight
+    (number : u128) -> u32
+    {
+        let mut weight = 0;
+        let mut bits = number;
+        while bits > 0
+        {
+            weight += bits & 1;
+            bits >>= 1;
+        }
+        return weight.try_into().unwrap();
+    }
+
+    /*
+     * Calculates the hamming distance between two numbers
+     */
+    pub fn hamming_dist
+    (num_a : u128, num_b : u128) -> u32
+    {
+        let diff = num_a ^ num_b;
+        return hamming_weight(diff);
+    }
+
+
+
+    /*
+     * Returns a number in NAF form
+     * returned value is given as a string of positive bits and a string of
+     * negative bits (pos, neg)
+     */
+    pub fn to_naf
+    (number : u128) -> (u128, u128)
+    {
+        let num_half = number >> 1;
+        let num3 = number + num_half;
+        let c = num_half ^ num3;
+        return (num3 & c, num_half & c);
+    }
+
+    /*
+     * Takes a number in NAF and returns it as a binary integer
+     */
+    pub fn from_naf
+    ( ( np, nm ) : (u128, u128) ) -> u128
+    {
+        return np - nm;
+    }
+
+    /*
      * Calculates the ceiling of the square root of a number
      * Uses a binary search to find the square root
      *
@@ -92,6 +143,12 @@ pub mod misc
             return Some(1);
         }
 
+        // Handles powers of two
+        if hamming_weight(number) == 1
+        {
+            return Some(2);
+        }
+        
         // Find log base 2 of n
         let log_2n = 128 - number.leading_zeros() - 1;
         for power in 2 .. log_2n // Check powers concurrently
