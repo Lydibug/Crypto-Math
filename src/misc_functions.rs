@@ -28,8 +28,6 @@ pub mod misc
         return hamming_weight(diff);
     }
 
-
-
     /*
      * Returns a number in NAF form
      * returned value is given as a string of positive bits and a string of

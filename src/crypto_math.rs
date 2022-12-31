@@ -341,7 +341,7 @@ pub mod crypto_math
         let mut handles = vec![];
         
         // To make sure no number is tried twice
-        let mut numbers_tried = Arc::new(Mutex::new(HashSet::<u128>::new()));
+        let numbers_tried = Arc::new(Mutex::new(HashSet::<u128>::new()));
         
 
         let root = misc::ceil_sqrt(number);
@@ -563,7 +563,7 @@ pub mod crypto_math
         let root : Option<u128>;
         if congruance == 3
         {
-            exponant = (modulus + 1) / 4;
+            exponant = (modulus + 1) >> 2;
             root = Some(mod_pow(number, exponant, modulus));
         }
         else
@@ -771,6 +771,7 @@ pub mod crypto_math
                 }
                 if is_primitive
                 {
+                    println!("{}", primitive);
                     primitives.push(primitive);
                 }
                 if root_count == primitives.len().try_into().unwrap()
