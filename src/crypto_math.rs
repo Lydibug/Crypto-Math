@@ -699,7 +699,7 @@ pub mod crypto_math
         let signed_number = i128::try_from(number).ok();
         let signed_modulus = i128::try_from(modulus).ok();
 
-        if !is_prime(modulus) && !signed_number.is_none() && !signed_modulus.is_none()
+        if !signed_number.is_none() && !signed_modulus.is_none()
         {
             let rst = gcd_ext(signed_number.unwrap(),signed_modulus.unwrap());
             if rst.0 < 1
