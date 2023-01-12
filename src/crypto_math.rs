@@ -364,8 +364,8 @@ pub mod crypto_math
                             attempt = rand_num(root, number - 1);
                         }
                         nums.insert(attempt);
-                        //println!("Using GCD");
                         let denom = gcd(number, attempt);
+                        
                         // If a factor was found, set the factor variable to it
                         if denom != 1
                         {
@@ -687,10 +687,34 @@ pub mod crypto_math
     pub fn mod_inv
     (number: u128, modulus: u128) -> u128
     {
+
         if number == 1 || number == 0
         {
             return number;
         }
+
+        // If the number and modulus are small enough and the modulus isnt prime, 
+        // use the extended euclidean alg to find the inverse to avoid calculating the totient
+        
+        let signed_number = i128::try_from(number).ok();
+        let signed_modulus = i128::try_from(modulus).ok();
+
+        if !is_prime(modulus) && !signed_number.is_none() && !signed_modulus.is_none()
+        {
+            let rst = gcd_ext(signed_number.unwrap(),signed_modulus.unwrap());
+            if rst.0 < 1
+            {
+                if rst.2 < 0
+                {
+                    return modulus - u128::try_from(rst.2).ok().unwrap();
+                }
+                else
+                {
+                    return u128::try_from(rst.2).ok().unwrap();
+                }
+            }
+        }
+
         let phi = eulers_phi(modulus);
         let inv_exp = phi - 1;
         let inverse = mod_pow ( number, inv_exp, modulus );
