@@ -722,6 +722,43 @@ pub mod crypto_math
     }
 
     /*
+     * Checks if a number is a primitive of a feild
+     */
+    pub fn is_primitive_root
+    (number : u128, modulus : u128) -> bool
+    {
+       
+        let totient : u128;
+        let prime_factors : Vec<(u128,u32)>;
+        let mut powers : Vec<u128>;
+
+        if is_quadratic_residue(number, modulus)
+        {
+            return false;
+        }
+        
+        totient = eulers_phi(modulus);
+        prime_factors = prime_factorize(totient);
+        powers = Vec::<u128>::new();
+        
+        for factor in &prime_factors
+        {
+            powers.push(totient/ factor.0);
+        }
+        
+        // pick a random elements and check if they're primitive until one is found
+        for power in &powers
+        {
+            let test = mod_pow(number, *power, modulus);
+            if test == 1
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /*
      * Finds a random primitive of a prime field
      */
     pub fn find_primitive_root
@@ -740,6 +777,7 @@ pub mod crypto_math
         loop
         {
             let primitive = rand_num(2,totient);
+            // The is_primitive_root function is not used here to avoid repeated factoring
             if !is_quadratic_residue(primitive, number)
             {
                 let mut is_primitive = true;
@@ -784,6 +822,7 @@ pub mod crypto_math
             // A quadratic residue cannot be a primitive element
             if !is_quadratic_residue(primitive, number)
             {
+                // The is_primitive_root function is not used here to avoid repeated factoring
                 let mut is_primitive = true;
                 for power in &powers
                 {

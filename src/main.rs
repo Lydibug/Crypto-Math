@@ -181,6 +181,17 @@ fn main()
                 println!();
                 //println!("{:?}", primitives);
             }
+            "isprimitive" =>
+            {
+                let number : u128 = args[2].parse().unwrap();
+                let modulus : u128 = args[3].parse().unwrap();
+                print!("{} is ", number);
+                if !crypto_math::is_primitive_root(number, modulus)
+                {
+                    print!("not ");
+                }
+                println!("a primitive root of {}", modulus);
+            }
             _ =>
             {
                 println!("incorrect usage")
